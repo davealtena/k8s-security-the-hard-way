@@ -1,0 +1,53 @@
+# Kubernetes Security the Hard Way - Cluster Configuration
+#
+# This configuration creates a two-node Kind cluster suitable for security demonstrations.
+# It works on Linux, macOS, and Windows with Docker Desktop.
+#
+# The cluster includes:
+# - One control plane node with port mappings for ingress
+# - One worker node for running workloads
+# - Taint on control plane to ensure demos run on worker
+#
+# Prerequisites:
+# - Docker Desktop (Windows/macOS) or Docker Engine (Linux)
+# - kind installed (see docs/01-prerequisites.md)
+#
+# Create cluster:
+#   kind create cluster --config kind-config.yaml
+#
+# Delete cluster:
+#   kind delete cluster --name security-demos
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: security-demos
+
+# Multi-node setup allows demonstration of pod scheduling,
+# network policies, and node-level security concerns
+nodes:
+- role: control-plane
+  # Port mappings allow ingress controllers to receive traffic from host
+  # These ports work identically on Linux, macOS, and Windows
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        # Label for ingress controller node selection
+        node-labels: "ingress-ready=true"
+      # Taint prevents workload pods from scheduling on control plane
+      # This ensures all demo pods run on the worker node for consistency
+      taints:
+      - key: node-role.kubernetes.io/control-plane
+        effect: NoSchedule
+
+- role: worker
+  # Worker node for running demo workloads
+  # All demo pods will schedule here due to control plane taint
